@@ -1,0 +1,20 @@
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+
+# Records / scratch
+*.splendor.json
+.DS_Store
+
+# Training artifacts
+checkpoints/
+checkpoints_*/
+*.pt
+*.log
+
+# Data lake (append-only store: shards / models / promote events)
+data/
+data_*/

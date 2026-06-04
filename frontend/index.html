@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Splendor Trainer — AI対戦 & 感想戦</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-orbs" aria-hidden="true"></div>
+  <header>
+    <div class="brand">
+      <span class="brand-gem" aria-hidden="true"></span>
+      <div>
+        <h1>Splendor Trainer</h1>
+        <p class="subtitle">AI対戦 &amp; 感想戦で上達する</p>
+      </div>
+    </div>
+    <div class="tabs">
+      <button id="tab-play" class="tab active">対局</button>
+      <button id="tab-review" class="tab" disabled>感想戦</button>
+    </div>
+    <div class="header-actions">
+      <label class="sims-field">AI強さ
+        <input id="ai-sims" type="number" value="600" min="50" max="20000" step="50" />
+        <span class="sims-unit">sims</span>
+      </label>
+      <button id="new-game" class="primary">＋ 新規対局</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ======================= PLAY ======================= -->
+    <section id="play-view">
+      <div class="status-bar">
+        <span id="turn-indicator">対局を開始してください</span>
+        <span id="winner-banner" class="hidden"></span>
+        <button id="analyze-position" class="ghost">この局面を解析</button>
+        <button id="start-review" class="primary hidden">感想戦へ →</button>
+      </div>
+
+      <div class="board-grid">
+        <aside id="nobles" class="panel nobles"></aside>
+        <div id="board" class="panel board"></div>
+        <aside id="bank" class="panel bank"></aside>
+      </div>
+
+      <div id="players" class="players"></div>
+
+      <div id="thinking" class="thinking hidden"></div>
+    </section>
+
+    <!-- ======================= REVIEW ======================= -->
+    <section id="review-view" class="hidden">
+      <div class="review-top">
+        <div class="graph-wrap panel">
+          <div class="graph-title">勝率推移（あなた = P0 視点）</div>
+          <svg id="winprob-graph" viewBox="0 0 600 160" preserveAspectRatio="none"></svg>
+          <div id="graph-legend" class="graph-legend"></div>
+        </div>
+        <div id="ply-eval" class="panel ply-eval"></div>
+      </div>
+      <div class="review-bottom">
+        <div id="review-board" class="panel board review-board"></div>
+        <div id="move-list" class="panel move-list"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

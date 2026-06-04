@@ -1,0 +1,9 @@
+[project]
+name = "splendor-trainer"
+version = "0.1.0"
+description = "Local Splendor AI with post-game review and best-move analysis"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
