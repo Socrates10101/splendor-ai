@@ -282,7 +282,17 @@ class GCSBackend(StorageBackend):
             raise ModuleNotFoundError(
                 "GCSBackend needs google-cloud-storage: pip install google-cloud-storage"
             ) from exc
-        self._client = storage.Client()
+        project = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT")
+        try:
+            self._client = (storage.Client(project=project) if project
+                            else storage.Client())
+        except Exception as exc:  # noqa: BLE001 - project/creds not resolvable
+            raise SystemExit(
+                "GCS init failed (no GCP project). Fix with one of:\n"
+                "  export GOOGLE_CLOUD_PROJECT=<project-id>\n"
+                "  gcloud auth application-default set-quota-project <project-id>\n"
+                "  (headless) service-account key: export GOOGLE_APPLICATION_CREDENTIALS=/path/key.json\n"
+                f"  original error: {exc}") from exc
         self._bucket = self._client.bucket(bucket)
         self._prefix = prefix.strip("/")
 

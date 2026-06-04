@@ -103,6 +103,9 @@ def _load_evaluator(store, version: str | None):
     if version is None:
         return HeuristicEvaluator(), None, "heuristic-bootstrap"
     import torch
+    # one core per generator process: run MANY processes in parallel instead of
+    # letting each process's torch grab all cores (oversubscription thrash).
+    torch.set_num_threads(1)
     from .nn import NNEvaluator, PolicyValueNet  # local import: torch optional
     ckpt = load_checkpoint_bytes(store.get_model_bytes(version), device="cpu")
     net = PolicyValueNet.from_config(ckpt["config"])
