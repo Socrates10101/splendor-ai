@@ -25,10 +25,10 @@ except ModuleNotFoundError as exc:  # pragma: no cover - guard for torch-less en
         "splendor.nn requires PyTorch. Install it with `pip install torch`."
     ) from exc
 
-from .encoding import ACTION_SPACE, action_index, feature_vector
-from .evaluator import Evaluator
-from .moves import legal_moves
-from .state import GameState
+from splendor.engine.encoding import ACTION_SPACE, action_index, feature_vector
+from splendor.engine.evaluator import Evaluator
+from splendor.engine.moves import legal_moves
+from splendor.engine.state import GameState
 
 
 def pick_device(name: str | None = None) -> "torch.device":

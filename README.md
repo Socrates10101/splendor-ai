@@ -6,35 +6,54 @@ Splendor が上手くなるための学習環境です。
 ## 構成
 
 ```
-splendor/
-├─ backend/                 # Python: ゲームエンジン(SSOT) + IS-MCTS AI + FastAPI
-│  ├─ splendor/             # エンジン本体（下記）
-│  ├─ server.py             # REST /api + WebSocket /ws、静的フロントを配信
-│  └─ tests/                # pytest（エンジン/記法/AI/API）
-└─ frontend/                # バニラJS（ビルド不要）: 対局UI + 感想戦ビューア
+backend/splendor/      # フォルダ＝工程（全体地図は docs/CODEMAP.md）
+├─ engine/   不変エンジン（cards rules rng state moves notation encoding evaluator ismcts analyze）
+├─ nn.py     共有: policy-value ネット + NNEvaluator
+├─ store.py  共有: 追記専用データレイク + データ契約
+├─ gen/      🟢 生成（generate.py / selfplay.py）
+├─ train/    🟣 学習（store.py=現行 / local.py=旧UI用）
+├─ eval/     🔵 検証（arena.py / match.py / worker.py）
+└─ viz/      📊 可視化（status.py / curve.py）
+backend/server.py + frontend/   🌐 対局UI(/) + 学習UI(/training)
 ```
 
-### バックエンド（`backend/splendor/`）
-
-| ファイル | 役割 |
-|---|---|
-| `cards.py` | 90枚の development card + 10 貴族（安定ID付き） |
-| `rules.py` | 定数（トークン配分・勝利点15・上限10 など） |
-| `rng.py` | seed から決定論シャッフル（再現可能） |
-| `state.py` | `GameState` / `PlayerState`、視点ごとの隠れ情報マスク |
-| `moves.py` | `Move`・合法手生成・適用（捨て札/貴族/ラウンド終了判定込み） |
-| `notation.py` | テキスト記法 ⇄ Move、棋譜(JSON)の save/load/replay |
-| `encoding.py` | 正準アクションインデックス + 特徴量ベクトル（将来のNN用） |
-| `evaluator.py` | `Evaluator` interface + `HeuristicEvaluator`（学習不要） |
-| `ismcts.py` | IS-MCTS（determinize + PUCT、評価器は差替可能） |
-| `analyze.py` | 棋譜の全手解析（勝率前後・最善手・delta=悪手度） |
-| `nn.py` | policy-value ネット(PyTorch) + `NNEvaluator`（学習済み重みを同 interface で供給） |
-| `selfplay.py` | 並列・lockstep の自己対戦。多数局のリーフを1回のバッチ推論にまとめる(leaf-batching) |
-| `train.py` | 自己対戦→学習ループ。`latest.pt`常時更新＋1時間ごとスナップショット＋`--resume` |
+> **コードの全体像・各ファイルの役割・どこに何を足すかは [`docs/CODEMAP.md`](docs/CODEMAP.md) に集約**（1枚地図）。下の「コード一覧（資産）」も参照。
 
 AI は **AlphaZero 形（policy-value 評価器 + IS-MCTS）**。v1 は学習不要の
 `HeuristicEvaluator` で動作し、後から同 interface の `NNEvaluator`（学習済み重み）に
 差し替えるだけで強化できる設計です。
+
+## コード一覧（資産）：生成 / 学習 / 検証
+
+分散・データ駆動プラットフォーム（詳細は `docs/training-platform-design.md`）。
+共通エンジンの上で、**生成・学習・検証**の3工程＋インフラに分かれる。すべて `--store`
+（既定 `$SPLENDOR_STORE` → `store.DEFAULT_STORE`）でローカル/`gs://` 両対応。
+
+| 工程 | モジュール | 役割 |
+|---|---|---|
+| **共通エンジン** | `cards/rules/rng/state/moves/notation/encoding/evaluator/ismcts/analyze` | 規則・状態・着手・seed+moves記法・45アクション/特徴・IS-MCTS・heuristic評価器（純stdlib・不変） |
+| **共通NN** | `nn.py` | policy-valueネット + `NNEvaluator`（学習済み重みを同 interface で供給） |
+| **共通ストア** | `store.py` | 追記専用データレイク（`LocalStore`/`GCSBackend`、`open_store`）＋データ契約＋best/promote/heartbeat |
+| 🟢 **生成** | `gen/generate.py` | ステートレス自己対戦生成器。現役モデルを取得→棋譜+π+provenance を `shards/` へ追記（`-m splendor.gen.generate --loop`） |
+| 🟢 **生成** | `gen/selfplay.py` | 並列leaf-batchingの自己対戦コア（`train/local.py`が使用） |
+| 🟣 **学習** | `train/store.py` | ストア消費の学習器。直近データ→学習→`models/`へpublish(+promote)。`-m splendor.train.store --loop` |
+| 🟣 **学習(旧)** | `train/local.py` | 自己完結のローカル学習ループ（生成も自前。UI(/training)が起動・`-m splendor.train.local`） |
+| 🔵 **検証** | `eval/worker.py` | 評価ワーカー。未評価モデルを heuristic と対戦→`eval/<gen>.json` を記録（`-m splendor.eval.worker --loop`） |
+| 🔵 **検証** | `eval/arena.py` | 2評価器の head-to-head 対戦ライブラリ（勝率/Elo） |
+| 🔵 **検証** | `eval/match.py` | 対戦CLI。`current/genNNNN/heuristic/*.pt` を選んで対戦・世代sweep（`-m splendor.eval.match`） |
+| 📊 **可視化** | `viz/status.py` | ストアの稼働状況CLI（色付き・日本語・heartbeat、`-m splendor.viz.status`） |
+| 📊 **可視化** | `viz/curve.py` | 学習曲線CLI（manifestのloss＋`eval/`の勝率をスパークライン、`-m splendor.viz.curve`） |
+| 🌐 **インフラ** | `server.py` + `frontend/` | 対局/感想戦UI（`/`）＋学習モニター/操作UI（`/training`） |
+| 🛠 **スクリプト** | `scripts/run-generators.sh` | N並列の生成器をまとめて起動（1コア/プロセス） |
+
+**運用の3プロセス（各マシンで `--loop`）**：
+```bash
+python -m splendor.gen.generate --loop      # 生成（ミニPC・CPU、scripts/run-generators.sh で並列）
+python -m splendor.train.store --loop   # 学習（ラップトップ・GPU）
+python -m splendor.eval.worker --loop      # 検証（任意のCPU。eval/ にログ→curveで曲線）
+python -m splendor.viz.status --watch 10    # 監視
+python -m splendor.viz.curve                # 学習曲線（loss + 勝率）
+```
 
 ## セットアップ & 起動
 
@@ -85,7 +104,7 @@ uvicorn server:app --port 8000
 ```
 
 `/training` の **操作パネル**でプリセット（お試し/標準/大きめ実験）を選び「▶ 学習開始」を
-押すだけ。サーバが `python -m splendor.train …` を子プロセスとして起動し、同じ画面で
+押すだけ。サーバが `python -m splendor.train.local …` を子プロセスとして起動し、同じ画面で
 進捗・損失・勝率・崩壊シグナル・ログをライブ表示する。「■ 停止」で現在のイテレーションを
 締めてから安全に終了。run ごとに `checkpoints_runs/<run名>/` に保存される。
 
@@ -115,10 +134,10 @@ pip install -r requirements.txt              # torch / numpy を含む
 # 推奨: 自己対戦を CPU 全コアに分散（--workers）、GPU は学習に使う。
 # --hours で時間を区切ると、その時点で安全に締めて自動終了する。
 # 1時間ごとに hourly_NNN.pt、毎イテレーション latest.pt、評価更新ごとに best.pt を保存。
-python -m splendor.train --device mps --workers 8 \
+python -m splendor.train.local --device mps --workers 8 \
     --games-per-iter 256 --sims 96 --eval-every 10 --hours 6
 
-python -m splendor.train --resume            # latest.pt から再開（best/経過時間も復元）
+python -m splendor.train.local --resume            # latest.pt から再開（best/経過時間も復元）
 ```
 
 チェックポイントの役割：
@@ -166,11 +185,11 @@ python -m splendor.train --resume            # latest.pt から再開（best/経
 
 ```bash
 # 進捗テーブル（勝率の推移をスパークライン付きで表示）
-python -m splendor.arena --report checkpoints/metrics.jsonl
+python -m splendor.eval.arena --report checkpoints/metrics.jsonl
 
 # 任意の2チェックポイント / vs heuristic を直接対戦させて強さを比較
-python -m splendor.arena --a checkpoints/hourly_005.pt --b heuristic --games 40
-python -m splendor.arena --a checkpoints/latest.pt --b checkpoints/hourly_001.pt
+python -m splendor.eval.arena --a checkpoints/hourly_005.pt --b heuristic --games 40
+python -m splendor.eval.arena --a checkpoints/latest.pt --b checkpoints/hourly_001.pt
 ```
 
 ランダム初期ネットは heuristic に大きく負ける（勝率〜0%）。学習が進むと
@@ -183,7 +202,7 @@ python -m splendor.arena --a checkpoints/latest.pt --b checkpoints/hourly_001.pt
 
 ```bash
 # ターミナル1: 学習（ファイルを書き出す）
-python -m splendor.train --device mps --workers 8 --eval-every 10 --hours 6
+python -m splendor.train.local --device mps --workers 8 --eval-every 10 --hours 6
 
 # ターミナル2: サーバ（読み取って表示）。学習を別ディレクトリに出した場合は環境変数で指定
 uvicorn server:app --port 8000          # SPLENDOR_CKPT_DIR=path で参照先を変更可
@@ -233,14 +252,14 @@ move = choose_move(state, sims=200, evaluator=ev)   # IS-MCTS は無改造
 ```bash
 # データストアはローカルパス or gs://bucket/prefix（同じコマンドで両対応）
 # 生成器（ステートレス・常時）: 現役モデルを拾い自己対戦→shard追記。無ければheuristicでbootstrap
-python -m splendor.generate --store gs://my-bucket/splendor --loop --games 16 --sims 64
+python -m splendor.gen.generate --store gs://my-bucket/splendor --loop --games 16 --sims 64
 
 # 学習器（GPU）: 直近データ(positions単位)を読み学習→model push→--promoteで現役更新
-python -m splendor.train_store --store gs://my-bucket/splendor --steps 200 --warm-start --promote
+python -m splendor.train.store --store gs://my-bucket/splendor --steps 200 --warm-start --promote
 
 # 状況確認（ヘッドレス/SSH向けCLIビュー。ローカルでも gs:// でも同じ）
-python -m splendor.status --store gs://my-bucket/splendor            # 一回表示
-python -m splendor.status --store gs://my-bucket/splendor --watch 10 # 10秒ごと更新
+python -m splendor.viz.status --store gs://my-bucket/splendor            # 一回表示
+python -m splendor.viz.status --store gs://my-bucket/splendor --watch 10 # 10秒ごと更新
 ```
 
 `status` は現役モデル・世代・データ量(positions)・生成器別・直近1hの生成レート・promote履歴を

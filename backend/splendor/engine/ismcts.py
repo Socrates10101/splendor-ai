@@ -13,12 +13,12 @@ from __future__ import annotations
 
 import math
 
-from .cards import CARDS
-from .state import GameState
-from .moves import legal_moves, apply_move, Move
-from .evaluator import Evaluator, HeuristicEvaluator, win_prob
-from .notation import to_notation
-from .rng import Rng
+from splendor.engine.cards import CARDS
+from splendor.engine.state import GameState
+from splendor.engine.moves import legal_moves, apply_move, Move
+from splendor.engine.evaluator import Evaluator, HeuristicEvaluator, win_prob
+from splendor.engine.notation import to_notation
+from splendor.engine.rng import Rng
 
 C_PUCT = 1.6
 MAX_DEPTH = 36

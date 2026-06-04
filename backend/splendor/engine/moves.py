@@ -10,9 +10,9 @@ from __future__ import annotations
 import itertools
 from dataclasses import dataclass, field
 
-from .cards import CARDS, NOBLES, COLORS, GOLD, ALL_TOKENS
-from . import rules
-from .state import GameState, PlayerState
+from splendor.engine.cards import CARDS, NOBLES, COLORS, GOLD, ALL_TOKENS
+from splendor.engine import rules
+from splendor.engine.state import GameState, PlayerState
 
 
 @dataclass

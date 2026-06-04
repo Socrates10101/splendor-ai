@@ -4,7 +4,7 @@
 # Each generator is single-threaded (we pin torch to 1 thread), so parallelism
 # comes from running many processes — one per core. They append shards
 # independently (no coordination needed). Ctrl-C stops them all gracefully, so
-# each writes a "stopped" heartbeat (visible in `splendor.status`).
+# each writes a "stopped" heartbeat (visible in `splendor.viz.status`).
 #
 # Usage:
 #   scripts/run-generators.sh [N]
@@ -19,7 +19,7 @@
 #   SPLENDOR_STORE    gs://bucket/prefix or dir (else the code's DEFAULT_STORE)
 #   GOOGLE_CLOUD_PROJECT  GCP project for the GCS store (if using gs://)
 #
-# Monitor while running:  python -m splendor.status --watch 10
+# Monitor while running:  python -m splendor.viz.status --watch 10
 set -uo pipefail
 
 # ---- resolve paths (works from anywhere; backend is ../backend of this script)
@@ -57,12 +57,12 @@ trap cleanup INT TERM
 echo "[run-generators] N=$N games=$GAMES sims=$SIMS prefix=$WORKER_PREFIX"
 echo "[run-generators] store=${SPLENDOR_STORE:-<DEFAULT_STORE>}  logs=$LOGDIR"
 for i in $(seq 0 $((N - 1))); do
-  OMP_NUM_THREADS=1 "$PY" -m splendor.generate --loop \
+  OMP_NUM_THREADS=1 "$PY" -m splendor.gen.generate --loop \
     --games "$GAMES" --sims "$SIMS" --worker "${WORKER_PREFIX}-$i" \
     > "$LOGDIR/gen-$i.log" 2>&1 &
   pids+=($!)
   echo "  started ${WORKER_PREFIX}-$i  pid=$!  log=$LOGDIR/gen-$i.log"
 done
 
-echo "[run-generators] running. Ctrl-C to stop all.  Monitor: $PY -m splendor.status --watch 10"
+echo "[run-generators] running. Ctrl-C to stop all.  Monitor: $PY -m splendor.viz.status --watch 10"
 wait

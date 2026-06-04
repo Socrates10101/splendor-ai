@@ -23,13 +23,13 @@ import time
 
 import numpy as np
 
-from .encoding import ACTION_SPACE, action_index
-from .evaluator import HeuristicEvaluator
-from .ismcts import search
-from .moves import apply_move, find_legal, legal_moves
-from .notation import from_notation, to_notation
-from .state import GameState
-from .store import (SCHEMA_VERSION, load_checkpoint_bytes, make_provenance,
+from splendor.engine.encoding import ACTION_SPACE, action_index
+from splendor.engine.evaluator import HeuristicEvaluator
+from splendor.engine.ismcts import search
+from splendor.engine.moves import apply_move, find_legal, legal_moves
+from splendor.engine.notation import from_notation, to_notation
+from splendor.engine.state import GameState
+from splendor.store import (SCHEMA_VERSION, load_checkpoint_bytes, make_provenance,
                     open_store, resolve_store_uri)
 
 
@@ -106,7 +106,7 @@ def _load_evaluator(store, version: str | None):
     # one core per generator process: run MANY processes in parallel instead of
     # letting each process's torch grab all cores (oversubscription thrash).
     torch.set_num_threads(1)
-    from .nn import NNEvaluator, PolicyValueNet  # local import: torch optional
+    from splendor.nn import NNEvaluator, PolicyValueNet  # local import: torch optional
     ckpt = load_checkpoint_bytes(store.get_model_bytes(version), device="cpu")
     net = PolicyValueNet.from_config(ckpt["config"])
     net.load_state_dict(ckpt["model"])

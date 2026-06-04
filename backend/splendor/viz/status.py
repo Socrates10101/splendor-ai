@@ -16,7 +16,7 @@ import os
 import sys
 import time
 
-from .store import open_store, resolve_store_uri
+from splendor.store import open_store, resolve_store_uri
 
 
 def _parse_shard_key(key: str):
@@ -113,7 +113,8 @@ _ANSI = {"reset": "\033[0m", "bold": "\033[1m", "dim": "\033[2m",
          "gray": "\033[90m"}
 # state -> (Japanese label, colour)
 _STATE_JA = {"generating": ("生成中", "cyan"), "idle": ("待機", "green"),
-             "training": ("学習中", "magenta"), "stopped": ("停止", "red")}
+             "training": ("学習中", "magenta"), "evaluating": ("評価中", "blue"),
+             "stopped": ("停止", "red")}
 
 
 def _painter(enabled: bool):

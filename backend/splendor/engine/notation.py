@@ -19,9 +19,9 @@ from __future__ import annotations
 
 import json
 
-from .cards import ALL_TOKENS
-from .state import GameState
-from .moves import Move, apply_move, find_legal
+from splendor.engine.cards import ALL_TOKENS
+from splendor.engine.state import GameState
+from splendor.engine.moves import Move, apply_move, find_legal
 
 ENGINE_VERSION = "0.1.0"
 

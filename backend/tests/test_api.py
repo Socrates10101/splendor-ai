@@ -113,53 +113,5 @@ def test_ws_analyze_streams_progress():
     assert all(m["eval"] is not None for m in done["record"]["moves"])
 
 
-def test_training_metrics_endpoint(tmp_path):
-    import json
-    d = tmp_path / "ck"
-    d.mkdir()
-    (d / "metrics.jsonl").write_text(
-        json.dumps({"iter": 1, "ploss": 2.0, "vloss": 0.1,
-                    "eval_winrate": 0.3, "eval_elo": -50.0}) + "\n")
-    (d / "status.json").write_text(
-        json.dumps({"state": "running", "iteration": 1, "best_winrate": 0.3}))
-    (d / "best.pt").write_bytes(b"weights")
-
-    saved = server.TRAIN["dir"]
-    server.TRAIN["dir"] = str(d)
-    try:
-        r = client.get("/api/training/metrics")
-        assert r.status_code == 200
-        j = r.json()
-        assert j["status"]["state"] == "running"
-        assert j["totalIters"] == 1
-        assert j["metrics"][0]["eval_winrate"] == 0.3
-        assert any(c["name"] == "best.pt" for c in j["checkpoints"])
-        assert "managed" in j
-        assert client.get("/training").status_code == 200
-    finally:
-        server.TRAIN["dir"] = saved
-
-
-def test_training_options_endpoint():
-    r = client.get("/api/training/options")
-    assert r.status_code == 200
-    j = r.json()
-    assert "defaults" in j and "hours" in j["defaults"]
-    assert any(p["id"] == "standard" for p in j["presets"])
-    assert "checkpoints" in j
-    assert j["running"] is False
-
-
-def test_arena_endpoint_runs_heuristic_match():
-    import time
-    r = client.post("/api/training/arena",
-                    json={"a": "heuristic", "b": "heuristic", "games": 2, "sims": 8})
-    assert r.status_code == 200
-    for _ in range(60):
-        s = client.get("/api/training/arena").json()
-        if s["state"] in ("done", "error"):
-            break
-        time.sleep(0.5)
-    assert s["state"] == "done", s
-    assert s["result"]["games"] == 2
-    assert 0.0 <= s["result"]["a_winrate"] <= 1.0
+# (training-control / arena endpoints were removed with the legacy flow; the
+# data-lake training is exercised by test_store.py.)

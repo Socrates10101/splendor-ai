@@ -13,10 +13,10 @@ from __future__ import annotations
 
 import math
 
-from .cards import CARDS, NOBLES, COLORS
-from .state import GameState, PlayerState
-from .moves import legal_moves, payment_for, Move
-from . import rules
+from splendor.engine.cards import CARDS, NOBLES, COLORS
+from splendor.engine.state import GameState, PlayerState
+from splendor.engine.moves import legal_moves, payment_for, Move
+from splendor.engine import rules
 
 
 class Evaluator:

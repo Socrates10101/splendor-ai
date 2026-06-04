@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .cards import CARDS, CARDS_BY_TIER, NOBLE_IDS, NOBLES, COLORS, GOLD, ALL_TOKENS, Card
-from .rng import Rng
-from . import rules
+from splendor.engine.cards import CARDS, CARDS_BY_TIER, NOBLE_IDS, NOBLES, COLORS, GOLD, ALL_TOKENS, Card
+from splendor.engine.rng import Rng
+from splendor.engine import rules
 
 
 @dataclass

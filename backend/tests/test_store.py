@@ -1,9 +1,9 @@
 """Phase 1: data contract + append-only store + generate/train decoupling."""
 import pytest
 
-from splendor.encoding import ACTION_SPACE
-from splendor.evaluator import HeuristicEvaluator
-from splendor.generate import generate_game
+from splendor.engine.encoding import ACTION_SPACE
+from splendor.engine.evaluator import HeuristicEvaluator
+from splendor.gen.generate import generate_game
 from splendor.store import (LocalStore, game_to_samples, make_provenance,
                             z_from_result, SCHEMA_VERSION)
 
@@ -85,7 +85,7 @@ def test_model_bytes_roundtrip_via_backend(tmp_path):
 
 
 def test_status_collect_and_render(tmp_path):
-    from splendor.status import collect, render
+    from splendor.viz.status import collect, render
     store = LocalStore(str(tmp_path / "data"))
     g = generate_game(HeuristicEvaluator(), seed=9, sims=10, temp=1.0,
                       temp_moves=3, max_moves=20)
@@ -110,10 +110,62 @@ def test_status_collect_and_render(tmp_path):
     assert "● minipc" in text  # shown as a live worker
 
 
+def test_eval_resolve_and_match(tmp_path):
+    torch = pytest.importorskip("torch")
+    from splendor.eval.match import resolve_evaluator
+    from splendor.store import LocalStore, model_to_bytes
+    from splendor.nn import PolicyValueNet
+    from splendor.engine.evaluator import HeuristicEvaluator
+    from splendor.eval.arena import play_match
+
+    store = LocalStore(str(tmp_path / "d"))
+    net = PolicyValueNet(126, width=16, blocks=1)
+    store.put_model(1, model_to_bytes(net.state_dict(), net.config()), {"parent": None})
+    store.promote("gen0001", {"logical_generation": 1})
+
+    assert isinstance(resolve_evaluator(store, "heuristic")[0], HeuristicEvaluator)
+    ev_cur, label = resolve_evaluator(store, "current")
+    assert label == "gen0001"
+    ev_h, _ = resolve_evaluator(store, "heuristic")
+    r = play_match(ev_cur, ev_h, games=2, sims=8)
+    assert 0.0 <= r["a_winrate"] <= 1.0
+
+
+def test_evaluate_writes_eval_record(tmp_path):
+    import argparse
+    pytest.importorskip("torch")
+    from splendor.eval.worker import evaluate_one, _evaluated_versions
+    from splendor.store import LocalStore, model_to_bytes
+    from splendor.nn import PolicyValueNet
+    store = LocalStore(str(tmp_path / "d"))
+    net = PolicyValueNet(126, width=16, blocks=1)
+    store.put_model(1, model_to_bytes(net.state_dict(), net.config()), {"parent": None})
+    args = argparse.Namespace(games=2, sims=8, device="cpu", seed=1)
+    rec = evaluate_one(store, "gen0001", args)
+    assert rec["version"] == "gen0001" and 0.0 <= rec["winrate"] <= 1.0
+    assert "gen0001" in _evaluated_versions(store)
+
+
+def test_curve_runs(tmp_path, capsys):
+    import json
+    pytest.importorskip("torch")
+    from splendor.viz.curve import main as curve_main
+    from splendor.store import LocalStore, model_to_bytes
+    from splendor.nn import PolicyValueNet
+    store = LocalStore(str(tmp_path / "d"))
+    net = PolicyValueNet(126, width=16, blocks=1)
+    store.put_model(1, model_to_bytes(net.state_dict(), net.config()),
+                    {"parent": None, "ploss": 1.2, "vloss": 0.5})
+    store.put_bytes("eval/gen0001.json",
+                    json.dumps({"version": "gen0001", "gen": 1, "winrate": 0.6}).encode())
+    curve_main(["--store", str(tmp_path / "d"), "--no-color"])
+    assert "学習曲線" in capsys.readouterr().out
+
+
 def test_end_to_end_generate_then_train(tmp_path):
     torch = pytest.importorskip("torch")
-    from splendor.train_store import main as train_main
-    from splendor.generate import main as gen_main
+    from splendor.train.store import main as train_main
+    from splendor.gen.generate import main as gen_main
     from splendor.nn import NNEvaluator
 
     d = str(tmp_path / "data")
@@ -128,6 +180,6 @@ def test_end_to_end_generate_then_train(tmp_path):
 
     # the published model loads into an evaluator usable by the engine/generator
     ev = NNEvaluator.from_checkpoint(store.model_weights_path("gen0001"), device="cpu")
-    from splendor.state import GameState
+    from splendor.engine.state import GameState
     policy, value = ev.evaluate(GameState.new([{"id": "a"}, {"id": "b"}], seed=2))
     assert policy and -1.0 <= value <= 1.0

@@ -23,11 +23,11 @@ import argparse
 import json
 import math
 
-from .evaluator import Evaluator, HeuristicEvaluator
-from .ismcts import choose_move
-from .moves import apply_move, legal_moves
-from .state import GameState
-from . import rules
+from splendor.engine.evaluator import Evaluator, HeuristicEvaluator
+from splendor.engine.ismcts import choose_move
+from splendor.engine.moves import apply_move, legal_moves
+from splendor.engine.state import GameState
+from splendor.engine import rules
 
 
 def _resolve_winner(state: GameState) -> int | None:
@@ -104,7 +104,7 @@ def load_evaluator(spec: str, device: str = "auto") -> Evaluator:
     """``spec`` is "heuristic" or a path to a training checkpoint."""
     if spec == "heuristic":
         return HeuristicEvaluator()
-    from .nn import NNEvaluator  # local import: torch optional
+    from splendor.nn import NNEvaluator  # local import: torch optional
     return NNEvaluator.from_checkpoint(spec, device=device)
 
 

@@ -20,10 +20,10 @@ from __future__ import annotations
 
 import itertools
 
-from .cards import CARDS, NOBLES, COLORS, GOLD, ALL_TOKENS
-from .state import GameState
-from .moves import Move
-from . import rules
+from splendor.engine.cards import CARDS, NOBLES, COLORS, GOLD, ALL_TOKENS
+from splendor.engine.state import GameState
+from splendor.engine.moves import Move
+from splendor.engine import rules
 
 _TAKE3 = list(itertools.combinations(COLORS, 3))         # 10
 _TAKE3_INDEX = {combo: i for i, combo in enumerate(_TAKE3)}

@@ -26,10 +26,10 @@ import subprocess
 import time
 import uuid
 
-from .encoding import ACTION_SPACE, feature_vector
-from .moves import apply_move, find_legal
-from .notation import from_notation
-from .state import GameState
+from splendor.engine.encoding import ACTION_SPACE, feature_vector
+from splendor.engine.moves import apply_move, find_legal
+from splendor.engine.notation import from_notation
+from splendor.engine.state import GameState
 
 SCHEMA_VERSION = 1
 ACTION_SPACE_VERSION = 1            # the 45-action canonical layout

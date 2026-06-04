@@ -3,12 +3,12 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from splendor.state import GameState
-from splendor.moves import legal_moves, apply_move
-from splendor.evaluator import HeuristicEvaluator, win_prob
-from splendor.ismcts import search, choose_move, determinize
-from splendor import notation, analyze
-from splendor.rng import Rng
+from splendor.engine.state import GameState
+from splendor.engine.moves import legal_moves, apply_move
+from splendor.engine.evaluator import HeuristicEvaluator, win_prob
+from splendor.engine.ismcts import search, choose_move, determinize
+from splendor.engine import notation, analyze
+from splendor.engine.rng import Rng
 
 SPECS = [{"id": "p0"}, {"id": "p1"}]
 

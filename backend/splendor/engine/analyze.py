@@ -10,9 +10,9 @@ The graph in the UI reads ``winProbP0`` (always player-0 perspective).
 """
 from __future__ import annotations
 
-from .notation import states_through
-from .evaluator import HeuristicEvaluator, Evaluator
-from .ismcts import search
+from splendor.engine.notation import states_through
+from splendor.engine.evaluator import HeuristicEvaluator, Evaluator
+from splendor.engine.ismcts import search
 
 DEFAULT_BLUNDER_THRESHOLD = 0.15
 

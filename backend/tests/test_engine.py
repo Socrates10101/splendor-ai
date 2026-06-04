@@ -3,10 +3,10 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from splendor.cards import CARDS, NOBLES, CARDS_BY_TIER, COLORS, GOLD
-from splendor.state import GameState
-from splendor.moves import legal_moves, apply_move, payment_for, qualifying_nobles
-from splendor import rules
+from splendor.engine.cards import CARDS, NOBLES, CARDS_BY_TIER, COLORS, GOLD
+from splendor.engine.state import GameState
+from splendor.engine.moves import legal_moves, apply_move, payment_for, qualifying_nobles
+from splendor.engine import rules
 
 SPECS = [{"id": "p0", "name": "A"}, {"id": "p1", "name": "B"}]
 
