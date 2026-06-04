@@ -1,11 +1,15 @@
+# Canonical dependency definitions live in pyproject.toml (role-based extras).
+# Preferred (uv):
+#   uv sync --extra worker    # mini-PC self-play generator (CPU torch on Linux)
+#   uv sync --extra train     # trainer (GPU/MPS)
+#   uv sync --extra monitor   # status CLI only (no torch/numpy)
+#   uv sync --extra dev       # everything + tests
+#
+# This file is the pip "everything" fallback (== the dev extra). Keep in sync.
 fastapi>=0.110
 uvicorn[standard]>=0.29
-# training (self-play AlphaZero); uses the MPS backend on Apple Silicon
 torch>=2.2
 numpy>=1.26
-# cloud data store (gs://… via the GCS backend). google-auth etc. come along.
-# Only needed when the store is gs://; on a local-only box you can skip it.
 google-cloud-storage>=2.16
-# dev/test
 pytest>=8.0
 httpx>=0.27

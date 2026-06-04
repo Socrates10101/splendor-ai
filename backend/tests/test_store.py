@@ -104,8 +104,9 @@ def test_status_collect_and_render(tmp_path):
     assert s["current"] == "gen0001"
     assert "minipc" in s["workers"]
     assert any(h["worker"] == "minipc" for h in s["heartbeats"])
-    text = render("local", s, ttl=180)
-    assert "current model : gen0001" in text and "Splendor training status" in text
+    text = render("local", s, ttl=180, color=False)
+    assert "現役モデル" in text and "gen0001" in text
+    assert "Splendor 学習状況" in text
     assert "● minipc" in text  # shown as a live worker
 
 
