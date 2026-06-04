@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import argparse
 import os
+import signal
+import socket
 import time
 
 import numpy as np
@@ -28,7 +30,7 @@ from .moves import apply_move, find_legal, legal_moves
 from .notation import from_notation, to_notation
 from .state import GameState
 from .store import (SCHEMA_VERSION, load_checkpoint_bytes, make_provenance,
-                    open_store)
+                    open_store, resolve_store_uri)
 
 
 def generate_game(evaluator, seed: int, sims: int, temp: float,
@@ -111,8 +113,8 @@ def _load_evaluator(store, version: str | None):
 
 def main(argv=None) -> None:
     p = argparse.ArgumentParser(description="Self-play data generator (stateless)")
-    p.add_argument("--store", required=True,
-                   help="data store: a local dir or gs://bucket/prefix")
+    p.add_argument("--store", default=None,
+                   help="data store: local dir or gs://bucket/prefix (default: $SPLENDOR_STORE)")
     p.add_argument("--games", type=int, default=16, help="games per shard")
     p.add_argument("--sims", type=int, default=64)
     p.add_argument("--temp", type=float, default=1.0)
@@ -124,38 +126,58 @@ def main(argv=None) -> None:
     p.add_argument("--shards", type=int, default=1, help="shards to write (if not --loop)")
     args = p.parse_args(argv)
 
-    store = open_store(args.store)
+    store = open_store(resolve_store_uri(args.store))
     base = args.seed if args.seed >= 0 else int.from_bytes(os.urandom(4), "big")
     ev, ver, kind = _load_evaluator(store, store.current_model())
     print(f"[gen] worker={args.worker} model={ver or 'heuristic'} "
           f"sims={args.sims} games/shard={args.games}")
 
+    host, pid = socket.gethostname(), os.getpid()
+
+    def beat(state, detail):
+        try:
+            store.put_heartbeat(args.worker, {"kind": "generate", "state": state,
+                "host": host, "pid": pid, "model_version": ver, "detail": detail})
+        except Exception:  # noqa: BLE001 - telemetry must never break generation
+            pass
+
+    # SIGTERM (systemd stop / kill) -> raise so the finally below runs
+    signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
+
     written = 0
-    while True:
-        cur = store.current_model()           # cheap pointer check each shard
-        if cur != ver:                         # reload weights only on change
-            ev, ver, kind = _load_evaluator(store, cur)
-            print(f"[gen] model switched -> {ver or 'heuristic'}")
+    try:
+        while True:
+            cur = store.current_model()        # cheap pointer check each shard
+            if cur != ver:                      # reload weights only on change
+                ev, ver, kind = _load_evaluator(store, cur)
+                print(f"[gen] model switched -> {ver or 'heuristic'}")
 
-        t0 = time.time()
-        games = [generate_game(ev, base + i, args.sims, args.temp,
-                               args.temp_moves, args.max_moves)
-                 for i in range(args.games)]
-        base += args.games
-        prov = make_provenance(
-            kind, ver,
-            {"sims": args.sims, "temp": args.temp, "temp_moves": args.temp_moves,
-             "max_moves": args.max_moves},
-            args.worker)
-        shard = {"schema_version": SCHEMA_VERSION, "provenance": prov, "games": games}
-        key = store.put_shard(shard, worker=args.worker)
-        positions = sum(len(g["targets"]) for g in games)
-        written += 1
-        print(f"[gen] {key}: {len(games)} games, {positions} positions, "
-              f"{time.time() - t0:.1f}s, model={ver or 'heuristic'}")
+            beat("generating", f"{args.games} games @sims{args.sims}")
+            t0 = time.time()
+            games = [generate_game(ev, base + i, args.sims, args.temp,
+                                   args.temp_moves, args.max_moves)
+                     for i in range(args.games)]
+            base += args.games
+            prov = make_provenance(
+                kind, ver,
+                {"sims": args.sims, "temp": args.temp, "temp_moves": args.temp_moves,
+                 "max_moves": args.max_moves},
+                args.worker)
+            shard = {"schema_version": SCHEMA_VERSION, "provenance": prov, "games": games}
+            key = store.put_shard(shard, worker=args.worker)
+            positions = sum(len(g["targets"]) for g in games)
+            written += 1
+            dt = time.time() - t0
+            beat("idle", f"{len(games)}g/{positions}pos {dt:.1f}s -> {key.split('/')[-1]}")
+            print(f"[gen] {key}: {len(games)} games, {positions} positions, "
+                  f"{dt:.1f}s, model={ver or 'heuristic'}")
 
-        if not args.loop and written >= args.shards:
-            break
+            if not args.loop and written >= args.shards:
+                break
+    except KeyboardInterrupt:
+        print("\n[gen] interrupted")
+    finally:
+        beat("stopped", f"exited after {written} shards")
 
 
 if __name__ == "__main__":

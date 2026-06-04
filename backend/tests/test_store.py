@@ -84,6 +84,31 @@ def test_model_bytes_roundtrip_via_backend(tmp_path):
     assert store.read_manifest("gen0001")["logical_generation"] == 1
 
 
+def test_status_collect_and_render(tmp_path):
+    from splendor.status import collect, render
+    store = LocalStore(str(tmp_path / "data"))
+    g = generate_game(HeuristicEvaluator(), seed=9, sims=10, temp=1.0,
+                      temp_moves=3, max_moves=20)
+    store.put_shard({"schema_version": SCHEMA_VERSION,
+                     "provenance": make_provenance("heuristic-bootstrap", None,
+                                                   {"sims": 10}, "minipc"),
+                     "games": [g]}, worker="minipc")
+    store.put_model(1, b"weights", {"parent": None, "ploss": 1.2})
+    store.promote("gen0001", {"logical_generation": 1})
+    store.put_heartbeat("minipc", {"kind": "generate", "state": "idle",
+                                   "model_version": "gen0001", "detail": "live"})
+
+    s = collect(store, recent=50)
+    assert s["shards"] == 1 and s["games"] == 1
+    assert s["positions"] == len(g["targets"])
+    assert s["current"] == "gen0001"
+    assert "minipc" in s["workers"]
+    assert any(h["worker"] == "minipc" for h in s["heartbeats"])
+    text = render("local", s, ttl=180)
+    assert "current model : gen0001" in text and "Splendor training status" in text
+    assert "● minipc" in text  # shown as a live worker
+
+
 def test_end_to_end_generate_then_train(tmp_path):
     torch = pytest.importorskip("torch")
     from splendor.train_store import main as train_main

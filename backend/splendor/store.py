@@ -188,6 +188,27 @@ class StorageBackend:
         self.put_bytes(key, json.dumps({**meta, "version": version,
                                         "logical_generation": gen}).encode())
 
+    # ---- liveness telemetry (segregated under _live/, NOT the immutable
+    # lineage). One overwrite-OK object per worker (latest-wins, keyed by host
+    # so it never collides/accumulates). This is OBSERVATION only — no worker
+    # ever reads it to make a decision, so it doesn't make the store hold
+    # "decision state". If the store is local, liveness stays local; if gs://,
+    # it's visible cross-machine. ----
+    def put_heartbeat(self, worker: str, info: dict) -> None:
+        self.put_bytes(f"_live/{worker}.json",
+                       json.dumps({**info, "worker": worker, "ts": time.time()}).encode())
+
+    def read_heartbeats(self) -> list[dict]:
+        out = []
+        for k in self.list_keys("_live/"):
+            if not k.endswith(".json"):
+                continue
+            try:
+                out.append(json.loads(self.get_bytes(k)))
+            except (json.JSONDecodeError, OSError):
+                pass
+        return out
+
     def current_model(self) -> str | None:
         """Fold promote events; pick the highest logical_generation (NOT ts)."""
         best = None
@@ -297,6 +318,26 @@ def open_store(uri: str) -> StorageBackend:
         bucket, _, prefix = rest.partition("/")
         return GCSBackend(bucket, prefix)
     return LocalStore(uri)
+
+
+DEFAULT_STORE_ENV = "SPLENDOR_STORE"
+# Overridable hardcoded default: env SPLENDOR_STORE and --store both win over
+# this. Lets every command run truly arg-free; change/override freely.
+DEFAULT_STORE = "gs://splendor-bucket-0605/main"
+
+
+def default_store_uri() -> str | None:
+    """Store used when ``--store`` is omitted: ``$SPLENDOR_STORE`` else DEFAULT_STORE."""
+    return os.environ.get(DEFAULT_STORE_ENV) or DEFAULT_STORE or None
+
+
+def resolve_store_uri(arg_value: str | None) -> str:
+    uri = arg_value or default_store_uri()
+    if not uri:
+        raise SystemExit(
+            "no store given: pass --store <dir|gs://...> or set "
+            f"${DEFAULT_STORE_ENV} (e.g. export {DEFAULT_STORE_ENV}=gs://bucket/prefix)")
+    return uri
 
 
 # ---------------------------------------------------------------------------

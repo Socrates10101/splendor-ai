@@ -237,6 +237,27 @@ python -m splendor.generate --store gs://my-bucket/splendor --loop --games 16 --
 
 # 学習器（GPU）: 直近データ(positions単位)を読み学習→model push→--promoteで現役更新
 python -m splendor.train_store --store gs://my-bucket/splendor --steps 200 --warm-start --promote
+
+# 状況確認（ヘッドレス/SSH向けCLIビュー。ローカルでも gs:// でも同じ）
+python -m splendor.status --store gs://my-bucket/splendor            # 一回表示
+python -m splendor.status --store gs://my-bucket/splendor --watch 10 # 10秒ごと更新
+```
+
+`status` は現役モデル・世代・データ量(positions)・生成器別・直近1hの生成レート・promote履歴を
+torch不要で表示（シャードキーから安く集計し、詳細は直近 `--recent N` シャードだけ読む）。
+
+`--store` は3コマンド共通で省略可。既定は `$SPLENDOR_STORE`、無ければコード内の
+`DEFAULT_STORE`（上書き可能なハードコード）。`export SPLENDOR_STORE=…` か `--store` で上書き可。
+
+**稼働状況（ライブ）**：generate/train_store は1サイクルごとに**生存情報(heartbeat)**を
+ストアの `_live/<host>.json` に上書き（決定には一切使わない観測専用テレメトリ＝不変リネージュ
+data/models/promote とは隔離）。`status` がTTL内のものを「● live」で表示する。ストアがローカル
+なら生存情報もローカル、`gs://` なら**他環境（ミニPC等）の稼働も手元から見える**。
+**終了時（Ctrl-C / systemd SIGTERM / 正常終了）は `state=stopped` を書き込む**ので、TTLを待たず
+即「○ stopped」になる。
+```
+workers : 1 live / 1 known  (live = seen ≤180s)
+  ● minipc   generate idle  gen0002  3s ago  16g/800pos 41s -> …
 ```
 
 - **データ契約**: 棋譜 `seed+moves+result` ＋ 各手の密な方策ターゲット `visit_counts[45]+legal_mask[45]` ＋

@@ -14,6 +14,8 @@ and the store contract.
 from __future__ import annotations
 
 import argparse
+import os
+import socket
 import time
 
 import numpy as np
@@ -21,7 +23,8 @@ import torch
 import torch.nn.functional as F
 
 from .nn import PolicyValueNet, pick_device
-from .store import git_sha, load_checkpoint_bytes, model_to_bytes, open_store
+from .store import (git_sha, load_checkpoint_bytes, model_to_bytes, open_store,
+                    resolve_store_uri)
 
 
 def _load_window(store, max_positions: int):
@@ -36,8 +39,8 @@ def _load_window(store, max_positions: int):
 
 def main(argv=None) -> None:
     p = argparse.ArgumentParser(description="Train from the append-only store")
-    p.add_argument("--store", required=True,
-                   help="data store: a local dir or gs://bucket/prefix")
+    p.add_argument("--store", default=None,
+                   help="data store: local dir or gs://bucket/prefix (default: $SPLENDOR_STORE)")
     p.add_argument("--steps", type=int, default=200)
     p.add_argument("--batch-size", type=int, default=512)
     p.add_argument("--lr", type=float, default=1e-3)
@@ -58,11 +61,22 @@ def main(argv=None) -> None:
     torch.manual_seed(args.seed)
     np.random.seed(args.seed & 0xFFFFFFFF)
     device = pick_device(args.device)
-    store = open_store(args.store)
+    store = open_store(resolve_store_uri(args.store))
 
+    worker = f"{socket.gethostname()}-train"
+
+    def beat(state, detail):
+        try:
+            store.put_heartbeat(worker, {"kind": "train", "state": state,
+                "host": socket.gethostname(), "pid": os.getpid(), "detail": detail})
+        except Exception:  # noqa: BLE001 - telemetry must never break training
+            pass
+
+    beat("training", f"{args.steps} steps")
     window = _load_window(store, args.max_positions)
     if window is None:
         print("[train] no data in store; generate some shards first.")
+        beat("stopped", "no data")
         return
     feats, pis, zs = window
     n = len(feats)
@@ -127,6 +141,9 @@ def main(argv=None) -> None:
             "created_at": time.time(),
         })
         print(f"[train] promoted {version} (generation {gen}) -> current")
+
+    beat("stopped", f"published {version}{'+promoted' if args.promote else ''} "
+         f"ploss={manifest['ploss']} vloss={manifest['vloss']}")
 
 
 if __name__ == "__main__":
