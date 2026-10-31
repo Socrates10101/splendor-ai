@@ -5,8 +5,8 @@ data volume, generation rate, recent promotes — for either a local path or a
 ``gs://bucket/prefix`` store. Read-only and torch-free (parses shard keys for
 cheap totals; reads only the most recent shards for the detailed breakdown).
 
-    python -m splendor.status --store gs://splendor-bucket-0605/main
-    python -m splendor.status --store gs://splendor-bucket-0605/main --watch 10
+    python -m splendor.viz.status --store gs://my-bucket/splendor
+    python -m splendor.viz.status --store gs://my-bucket/splendor --watch 10
 """
 from __future__ import annotations
 

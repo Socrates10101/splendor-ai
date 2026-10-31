@@ -333,7 +333,9 @@ def open_store(uri: str) -> StorageBackend:
 DEFAULT_STORE_ENV = "SPLENDOR_STORE"
 # Overridable hardcoded default: env SPLENDOR_STORE and --store both win over
 # this. Lets every command run truly arg-free; change/override freely.
-DEFAULT_STORE = "gs://splendor-bucket-0605/main"
+# A relative local directory (resolved from the cwd, i.e. backend/data when
+# commands run from backend/). Point it at gs://bucket/prefix for a shared lake.
+DEFAULT_STORE = "data"
 
 
 def default_store_uri() -> str | None:
